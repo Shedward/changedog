@@ -1,5 +1,9 @@
-extension GitLab {
+public extension GitLab {
 	struct Project {
-		let id: String
+		public let id: String
+
+		public init(id: String) {
+			self.id = id
+		}
 	}
 }

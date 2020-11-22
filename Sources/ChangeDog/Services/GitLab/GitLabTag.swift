@@ -1,9 +1,9 @@
 import Foundation
 
-extension GitLab {
+public extension GitLab {
 	struct Tag: Decodable {
-		let name: String
-		let message: String?
-		let commit: Commit
+		public let name: String
+		public let message: String?
+		public let commit: Commit
 	}
 }

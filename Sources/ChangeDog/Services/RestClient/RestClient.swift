@@ -1,7 +1,7 @@
 import Foundation
 
-final class RestClient {
-	enum Error: Swift.Error {
+public final class RestClient {
+	public enum Error: Swift.Error {
 		case noData(Swift.Error?)
 		case networkError(Swift.Error)
 		case encodingError(Swift.Error)
@@ -10,7 +10,7 @@ final class RestClient {
 		case wrongResponse
 		case failedToComposeUrl
 
-		struct HTTPError {
+		public struct HTTPError {
 			let code: Int
 			let responseData: String?
 		}

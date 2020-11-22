@@ -1,10 +1,10 @@
 import Foundation
 
-enum GitLab {
-	final class Client {
+public enum GitLab {
+	public final class Client {
 		private let restClient: RestClient
 
-		init(host: URL, project: Project, token: String, session: URLSession) {
+		public init(host: URL, project: Project, token: String, session: URLSession) {
 			self.restClient = RestClient(
 				endpoint: host.appendingPathComponent("/api/v4/project/\(project.id)"),
 				session: session,
@@ -16,11 +16,11 @@ enum GitLab {
 					decoder.dateDecodingStrategy = .formatted(formatter)
 					return decoder
 				}(),
-				authStrategy: RestClient.StaticAuthToken(token, inHTTPHeaderField: "Private-Token")
+				authStrategy: RestClient.StaticTokenAuth(token: token, inHTTPHeaderField: "Private-Token")
 			)
 		}
 
-		func tags(completion: @escaping (Result<[Tag], RestClient.Error>) -> Void) {
+		public func tags(completion: @escaping (Result<[Tag], RestClient.Error>) -> Void) {
 			restClient.request(
 				[Tag].self,
 				method: "GET",
@@ -29,7 +29,7 @@ enum GitLab {
 			)
 		}
 
-		func diff(
+		public func diff(
 			from fromCommitHash: CommitHash,
 			to toCommitHash: CommitHash,
 			completion: @escaping (Result<Diff, RestClient.Error>) -> Void

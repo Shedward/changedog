@@ -5,19 +5,16 @@ struct ChangeDog: ParsableCommand {
 	func run() throws {
 		let dispatchGroup = DispatchGroup()
 
-		let gitlabClient = GitLab.Client(
-			host: URL(string: "https://gitlab.m2.ru")!,
-			project: .init(id: "146"),
-			token: "_",
+		let jiraClient = try Jira.Client(
+			host: URL(string: "https://jira.m2.ru")!,
+			credentials: .init(username: "maltsevvn", token: "_"),
 			session: .shared
 		)
 
 		dispatchGroup.enter()
-		gitlabClient.diff(
-			from: "1.8.1",
-			to: "1.9.0"
-		) { result in
-			print(result.map { $0.commits.map { $0.message } })
+		let query = Jira.Query.issuesWithIds([try .init(value: "MOB-2759")])
+		jiraClient.searchIssues(query: try query.compile()) { result in
+			print(result)
 			dispatchGroup.leave()
 		}
 

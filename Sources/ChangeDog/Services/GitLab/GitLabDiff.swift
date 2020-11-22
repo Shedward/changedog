@@ -1,5 +1,5 @@
-extension GitLab {
+public extension GitLab {
 	struct Diff: Decodable {
-		let commits: [Commit]
+		public let commits: [Commit]
 	}
 }
