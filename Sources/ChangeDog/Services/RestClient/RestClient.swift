@@ -1,125 +1,147 @@
 import Foundation
 
-public final class RestClient {
-	public enum Error: Swift.Error {
+final class RestClient {
+	enum Error: Swift.Error {
 		case noData(Swift.Error?)
 		case networkError(Swift.Error)
 		case encodingError(Swift.Error)
 		case decodingError(Swift.Error)
 		case authError(Swift.Error)
+		case wrongRequest(Swift.Error)
 		case wrongResponse
 		case failedToComposeUrl
 
-		public struct HTTPError {
+		struct HTTPError {
 			let code: Int
 			let responseData: String?
 		}
 		case httpError(HTTPError)
 	}
 
-	private struct EmptyBody: Encodable, Decodable { }
+	private struct Request<Body: Encodable> {
+		let method: String
+		let path: String?
+		let parameters: [String: String]?
+		let body: Body?
+
+		init(method: String, path: String? = nil, parameters: [String: String]? = nil, body: Body? = nil) {
+			self.method = method
+			self.path = path
+			self.parameters = parameters
+			self.body = body
+		}
+	}
+
+	private struct EmptyBody: Encodable, Decodable {}
 
 	private let authStrategy: AuthStrategy
+	private let codingStrategy: CodingStrategy
 	private let endpoint: URL
-	private let encoder: JSONEncoder
-	private let decoder: JSONDecoder
 	private let session: URLSession
 
 	init(
 		endpoint: URL,
 		session: URLSession,
-		encoder: JSONEncoder = .init(),
-		decoder: JSONDecoder = .init(),
+		codingStrategy: CodingStrategy,
 		authStrategy: AuthStrategy
 	) {
 		self.authStrategy = authStrategy
+		self.codingStrategy = codingStrategy
 		self.endpoint = endpoint
-		self.encoder = encoder
-		self.decoder = decoder
 		self.session = session
 	}
 
 	func request(
 		method: String,
-		path: String,
-		parameters: [String: String]? = nil,
-		completion: @escaping (Result<Void, RestClient.Error>) -> Void
-	)  {
-		makeRequest(
+		path: String? = nil,
+		parameters: [String: String]? = nil
+	) -> Async.Task<Void, RestClient.Error>  {
+		makeTask(
 			EmptyBody.self,
-			method: method,
-			path: path,
-			parameters: parameters,
-			body: Optional<EmptyBody>.none
-		) { result in
-			completion(result.map { _ in Void() })
-		}
+			Request(
+				method: method,
+				path: path,
+				parameters: parameters,
+				body: Optional<EmptyBody>.none
+			)
+		)
+		.mapSuccess { _ in Void() }
 	}
 
-	func request<Request: Encodable>(
+	func request<RequestBody: Encodable>(
 		method: String,
-		path: String,
+		path: String? = nil,
 		parameters: [String: String]? = nil,
-		body: Request,
-		completion: @escaping (Result<Void, RestClient.Error>) -> Void
-	)  {
-		makeRequest(
+		body: RequestBody
+	) -> Async.Task<Void, RestClient.Error>  {
+		makeTask(
 			EmptyBody.self,
-			method: method,
-			path: path,
-			parameters: parameters,
-			body: body
-		) { result in
-			completion(result.map { _ in Void() })
-		}
+			Request(
+				method: method,
+				path: path,
+				parameters: parameters,
+				body: body
+			)
+		)
+		.mapSuccess { _ in Void() }
 	}
 
-	func request<Response: Decodable>(
-		_ type: Response.Type,
+	func request<ResponseBody: Decodable>(
+		_ type: ResponseBody.Type,
 		method: String,
-		path: String,
-		parameters: [String: String]? = nil,
-		completion: @escaping (Result<Response, RestClient.Error>) -> Void
-	)  {
-		makeRequest(
-			type,
-			method: method,
-			path: path,
-			parameters: parameters,
-			body: Optional<EmptyBody>.none,
-			completion: completion
+		path: String? = nil,
+		parameters: [String: String]? = nil
+	) -> Async.Task<ResponseBody, RestClient.Error>  {
+		makeTask(
+			ResponseBody.self,
+			Request(
+				method: method,
+				path: path,
+				parameters: parameters,
+				body: Optional<EmptyBody>.none
+			)
 		)
 	}
 
-	func request<Request: Encodable, Response: Decodable>(
-		_ type: Response.Type,
+	func request<RequestBody: Encodable, ResponseBody: Decodable>(
+		_ type: ResponseBody.Type,
 		method: String,
-		path: String,
+		path: String? = nil,
 		parameters: [String: String]? = nil,
-		body: Request,
-		completion: @escaping (Result<Response, RestClient.Error>) -> Void
-	)  {
-		makeRequest(
-			type,
-			method: method,
-			path: path,
-			parameters: parameters,
-			body: body,
-			completion: completion
+		body: RequestBody
+	) -> Async.Task<ResponseBody, RestClient.Error>  {
+		makeTask(
+			ResponseBody.self,
+			Request(
+				method: method,
+				path: path,
+				parameters: parameters,
+				body: body
+			)
 		)
 	}
 
-	private func makeRequest<Request: Encodable, Response: Decodable>(
-		_ type: Response.Type,
-		method: String,
-		path: String,
-		parameters: [String: String]? = nil,
-		body: Request?,
-		completion: @escaping (Result<Response, RestClient.Error>) -> Void
-	)  {
-		var url = endpoint.appendingPathComponent(path)
+	private func makeTask<RequestBody: Encodable, ResponseBody: Decodable>(
+		_ type: ResponseBody.Type,
+		_ request: Request<RequestBody>
+	) -> Async.Task<ResponseBody, RestClient.Error> {
+		.init { completion in
+			self.makeRequest(type, request, completion: completion)
+		}
+	}
 
-		if let parameters = parameters {
+	private func makeRequest<RequestBody: Encodable, ResponseBody: Decodable>(
+		_ type: ResponseBody.Type,
+		_ request: Request<RequestBody>,
+		completion: @escaping (Result<ResponseBody, RestClient.Error>) -> Void
+	)  {
+		var url = endpoint
+
+		if let path = request.path {
+			url = url.appendingPathComponent(path)
+		}
+
+		if let parameters = request.parameters {
 			var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
 			components?.queryItems = parameters.map { key, value in URLQueryItem(name: key, value: value) }
 			guard let urlWithParameters = components?.url else {
@@ -129,16 +151,18 @@ public final class RestClient {
 			url = urlWithParameters
 		}
 
-		var request = URLRequest(url: url)
-		request.httpMethod = method
+		var urlRequest = URLRequest(url: url)
+		urlRequest.httpMethod = request.method
+		urlRequest.addValue(codingStrategy.encodingContentType, forHTTPHeaderField: "Content-Type")
+		urlRequest.addValue(codingStrategy.decodingContentType, forHTTPHeaderField: "Accept")
 
 		do {
-			request.httpBody = try body.flatMap { try self.encoder.encode($0) }
+			urlRequest.httpBody = try request.body.flatMap { try self.codingStrategy.encode($0) }
 		} catch {
 			return completion(.failure(.encodingError(error)))
 		}
 
-		authStrategy.decorateRequest(request) { requestResult in
+		authStrategy.decorateRequest(urlRequest) { requestResult in
 			switch requestResult {
 			case .success(let request):
 				let task = self.session.dataTask(with: request) { data, response, error in
@@ -147,7 +171,7 @@ public final class RestClient {
 						guard let data = data else { return completion(.failure(.noData(error))) }
 
 						do {
-							let response = try self.decoder.decode(Response.self, from: data)
+							let response = try self.codingStrategy.decode(ResponseBody.self, from: data)
 							return completion(.success(response))
 						} catch {
 							return completion(.failure(.decodingError(error)))

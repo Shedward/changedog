@@ -1,7 +1,7 @@
-public extension GitLab {
+extension GitLab {
 	struct Commit: Decodable {
-		public let id: CommitHash
-		public let title: String
-		public let message: String
+		let shortId: CommitHash
+		let title: String
+		let message: String
 	}
 }

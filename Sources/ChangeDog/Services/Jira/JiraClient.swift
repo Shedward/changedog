@@ -8,6 +8,7 @@ enum Jira {
 			restClient = RestClient(
 				endpoint: host.appendingPathComponent("/rest/api/2"),
 				session: session,
+				codingStrategy: RestClient.JsonCoding(),
 				authStrategy: try RestClient.BasicAuth(
 					username: credentials.username,
 					password: credentials.token
@@ -15,25 +16,27 @@ enum Jira {
 			)
 		}
 
-		func issue(for key: IssueKey, completion: @escaping (Result<Issue, RestClient.Error>) -> Void) {
+		func issue(for key: IssueKey) -> Async.Task<Issue, RestClient.Error> {
 			restClient.request(
 				Issue.self,
 				method: "GET",
-				path: "/issue/\(key)",
-				completion: completion
+				path: "/issue/\(key)"
 			)
 		}
 
-		func searchIssues(query: String, completion: @escaping (Result<SearchResults, RestClient.Error>) -> Void) {
-			restClient.request(
-				SearchResults.self,
-				method: "GET",
-				path: "/search",
-				parameters: [
-					"jql": query
-				],
-				completion: completion
-			)
+		func searchIssues(query: Jira.Query) -> Async.Task<SearchResults, RestClient.Error> {
+			do {
+				return restClient.request(
+					SearchResults.self,
+					method: "GET",
+					path: "/search",
+					parameters: [
+						"jql": try query.compile()
+					]
+				)
+			} catch {
+				return Async.justError(valueType: SearchResults.self, error: RestClient.Error.wrongRequest(error))
+			}
 		}
 	}
 }
