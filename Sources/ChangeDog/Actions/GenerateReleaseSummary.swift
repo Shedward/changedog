@@ -2,6 +2,7 @@ extension Actions {
 	struct GenerateReleaseSummary: Action {
 		enum Error: Swift.Error {
 			case failedToGetTags(RestClient.Error)
+			case failedToGetProject(RestClient.Error)
 			case failedToGetDiff(RestClient.Error)
 			case failedToFindIssues(RestClient.Error)
 			case failedToSendReport(RestClient.Error)
@@ -36,46 +37,63 @@ extension Actions {
 					self.gitlabClient.tags()
 						.mapError { Error.failedToGetTags($0) }
 				}
-				.then { tags -> Async.Task<String, Error> in
-					self.releases(for: tags).withErrorType(Error.self)
+				.then { tags -> Async.Task<(GitLab.Project, [GitLab.Tag]), Error> in
+					self.gitlabClient.project()
+						.mapSuccess { project in (project, tags) }
+						.mapError { Error.failedToGetProject($0) }
+				}
+				.then { project, tags -> Async.Task<String?, Error> in
+					self.releases(for: project, tags: tags).withErrorType(Error.self)
 				}
 				.then { report -> Async.Task<Void, Error> in
-					let message = Slack.Message(
-						channel: channel,
-						username: username,
-						iconUrl: nil,
-						iconEmoji: iconEmoji,
-						text: report
-					)
-					return self.slackClient.send(message: message)
-						.mapError { Error.failedToSendReport($0) }
+					if let report = report {
+						let message = Slack.Message(
+							channel: channel,
+							username: username,
+							iconUrl: nil,
+							iconEmoji: iconEmoji,
+							text: report
+						)
+						return self.slackClient.send(message: message)
+							.mapError { Error.failedToSendReport($0) }
+					} else {
+						return Async.justValue(value: (), errorType: Error.self)
+					}
 				}
 				.mapError { $0 }
 		}
 
 
 		private func releases(
-			for tags: [GitLab.Tag]
-		) -> Async.Task<String, Never> {
+			for project: GitLab.Project,
+			tags: [GitLab.Tag]
+		) -> Async.Task<String?, Never> {
 			let processingTags = tags.prefix(maxReleaseCount + 1).adjacents()
 			return Async
 				.forEach(in: processingTags) { tags -> Async.Task<String, Never> in
-					self.issuesInRelease(fromTag: tags.1, toTag: tags.0)
+					self.issuesInRelease(project: project, fromTag: tags.1, toTag: tags.0)
 				}
 				.mapSuccess { results in
 					if results.isEmpty {
-						return "Нет релизов"
+						return nil
 					} else {
-						return results
-							.compactMap { result -> String? in
-								try? result.get()
-							}
-							.joined(separator: "\n\n")
+						return self.releasesReport(project: project, tagReports: results)
 					}
 				}
 		}
 
+		private func releasesReport(project: GitLab.Project, tagReports: [Result<String, Never>]) -> String {
+			var output: String = "🎉   Новые изменения в *\(project.name)*:\n\n\n"
+			output += tagReports
+				.compactMap { result -> String? in
+					try? result.get()
+				}
+				.joined(separator: "\n\n")
+			return output
+		}
+
 		private func issuesInRelease(
+			project: GitLab.Project,
 			fromTag: GitLab.Tag,
 			toTag: GitLab.Tag
 		) -> Async.Task<String, Never> {
@@ -101,7 +119,12 @@ extension Actions {
 
 					switch searchResult {
 					case .success(let success):
-						description = self.formatIssuesReport(for: toTag, issues: success.issues)
+						description = self.formatIssuesReport(
+							project: project,
+							from: fromTag,
+							to: toTag,
+							issues: success.issues
+						)
 					case .failure(let error):
 						description = self.formatFailureReport(for: toTag, error: error)
 					}
@@ -122,24 +145,41 @@ extension Actions {
 			return Array(Set(issues + issuesFromTag))
 		}
 
-		private func formatIssuesReport(for tag: GitLab.Tag, issues: [Jira.Issue]) -> String {
-			var output = "🏷   *\(tag.name)*\n"
+		private func formatIssuesReport(
+			project: GitLab.Project,
+			from fromTag: GitLab.Tag,
+			to toTag: GitLab.Tag,
+			issues: [Jira.Issue]
+		) -> String {
+			let tagName = toTag.name.maskingMarkdown()
+			let tagUrl = project.compareUrl(from: fromTag, to: toTag)
+			var output = "🏷   *<\(tagUrl)|\(tagName)>*\n"
 
 			if issues.isEmpty {
-				if let tagMessage = tag.message {
-					output += tagMessage.prependToEachLine(">") + "\n"
+				if let tagMessage = toTag.message {
+					output += tagMessage
+						.maskingMarkdown()
+						.prependToEachLine(">")
+					output += "\n"
 				} else {
 					output += "\tНет тасок и описания"
 				}
 			} else {
-				if let tagMessage = tag.message {
-					output += tagMessage.prependToEachLine(">") + "\n"
+				if let tagMessage = toTag.message {
+					output += tagMessage
+						.maskingMarkdown()
+						.prependToEachLine(">")
+					output += "\n"
 				}
 				output += issues
 					.map { issue in
+						var issueDescription: String = ""
+						issueDescription += "◦  "
 						let issueUrl = jiraClient.url(for: issue.key)
-						return "◦  <\(issueUrl)|\(issue.key.value)>: \(issue.summary) [_\(issue.status)_]"
-							.prependToEachLine("\t")
+						issueDescription += "<\(issueUrl)|\(issue.key.value.maskingMarkdown())>"
+						issueDescription += ": \(issue.summary.maskingMarkdown())"
+						issueDescription += " [_\(issue.status.maskingMarkdown())_]"
+						return issueDescription.prependToEachLine("\t")
 					}
 					.joined(separator: "\n")
 			}
@@ -149,7 +189,7 @@ extension Actions {
 		}
 
 		private func formatFailureReport(for tag: GitLab.Tag, error: Swift.Error) -> String {
-			var output = "*Tag: \(tag.name)*\n"
+			var output = "*Tag: \(tag.name.maskingMarkdown())*\n"
 			output += "Не удалось получить задачи: \(error)".prependToEachLine("\t")
 			output += "\n"
 			return output

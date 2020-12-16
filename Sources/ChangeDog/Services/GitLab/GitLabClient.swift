@@ -3,12 +3,14 @@ import Foundation
 enum GitLab {
 	final class Client {
 		private let host: URL
+		private let projectId: ProjectId
 		private let restClient: RestClient
 
-		init(host: URL, project: ProjectId, token: String, session: URLSession) {
+		init(host: URL, projectId: ProjectId, token: String, session: URLSession) {
 			self.host = host
+			self.projectId = projectId
 			self.restClient = RestClient(
-				endpoint: host.appendingPathComponent("/api/v4/projects/\(project.id)"),
+				endpoint: host.appendingPathComponent("/api/v4/projects/\(projectId.id)"),
 				session: session,
 				codingStrategy: RestClient.JsonCoding(
 					decoder: {
@@ -21,6 +23,13 @@ enum GitLab {
 					 }()
 				),
 				authStrategy: RestClient.StaticTokenAuth(token: token, inHTTPHeaderField: "Private-Token")
+			)
+		}
+
+		func project() -> Async.Task<Project, RestClient.Error> {
+			restClient.request(
+				Project.self,
+				method: "GET"
 			)
 		}
 

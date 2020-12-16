@@ -41,7 +41,7 @@ struct ChangeDog: ParsableCommand {
 		)
 		let gitlabClient = GitLab.Client(
 			host: configuration.gitlabHost,
-			project: configuration.gitlabProject,
+			projectId: configuration.gitlabProject,
 			token: configuration.gitlabToken,
 			session: session
 		)
