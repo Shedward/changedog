@@ -1,3 +1,5 @@
+import Foundation
+
 extension Actions {
 	struct GenerateReleaseSummary: Action {
 		enum Error: Swift.Error {
@@ -11,8 +13,7 @@ extension Actions {
 		let gitlabClient: GitLab.Client
 		let jiraClient: Jira.Client
 		let slackClient: Slack.Client
-		let channel: String
-		let maxReleaseCount: Int
+		let slackChannel: String
 
 		let username = "ChangeDog"
 		let iconEmoji = ":dog:"
@@ -21,14 +22,12 @@ extension Actions {
 			gitlabClient: GitLab.Client,
 			jiraClient: Jira.Client,
 			slackClient: Slack.Client,
-			channel: String,
-			maxReleaseCount: Int
+			slackChannel: String
 		) {
 			self.gitlabClient = gitlabClient
 			self.jiraClient = jiraClient
 			self.slackClient = slackClient
-			self.channel = channel
-			self.maxReleaseCount = maxReleaseCount
+			self.slackChannel = slackChannel
 		}
 
 		func mainTask() -> Async.Task<Void, Swift.Error> {
@@ -48,7 +47,7 @@ extension Actions {
 				.then { report -> Async.Task<Void, Error> in
 					if let report = report {
 						let message = Slack.Message(
-							channel: channel,
+							channel: slackChannel,
 							username: username,
 							iconUrl: nil,
 							iconEmoji: iconEmoji,
@@ -63,12 +62,33 @@ extension Actions {
 				.mapError { $0 }
 		}
 
+		private func tagsToShow(tags: [GitLab.Tag]) -> [GitLab.Tag] {
+			guard let dayBefore = Calendar.current.date(
+				byAdding: .day,
+				value: -1,
+				to: Date(),
+				wrappingComponents: true
+			)
+			else {
+				return []
+			}
+
+			let foundLastReleaseFromDayBefore = tags.firstIndex { tag -> Bool in
+				tag.commit.createdAt < dayBefore
+			}
+
+			guard let lastReleaseFromDayBefore = foundLastReleaseFromDayBefore else {
+				return []
+			}
+
+			return Array(tags[...lastReleaseFromDayBefore])
+		}
 
 		private func releases(
 			for project: GitLab.Project,
 			tags: [GitLab.Tag]
 		) -> Async.Task<String?, Never> {
-			let processingTags = tags.prefix(maxReleaseCount + 1).adjacents()
+			let processingTags = self.tagsToShow(tags: tags).adjacents()
 			return Async
 				.forEach(in: processingTags) { tags -> Async.Task<String, Never> in
 					self.issuesInRelease(project: project, fromTag: tags.1, toTag: tags.0)

@@ -55,8 +55,7 @@ struct ChangeDog: ParsableCommand {
 			gitlabClient: gitlabClient,
 			jiraClient: jiraClient,
 			slackClient: slackClient,
-			channel: configuration.slackChannel,
-			maxReleaseCount: configuration.maxReleaseCount
+			slackChannel: configuration.slackChannel
 		)
 
 		action.mainTask().complete { result in
