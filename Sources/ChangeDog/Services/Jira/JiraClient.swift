@@ -2,9 +2,11 @@ import Foundation
 
 enum Jira {
 	final class Client {
+		private let host: URL
 		private let restClient: RestClient
 
 		init(host: URL, credentials: Credentials, session: URLSession) throws {
+			self.host = host
 			restClient = RestClient(
 				endpoint: host.appendingPathComponent("/rest/api/2"),
 				session: session,
@@ -14,6 +16,10 @@ enum Jira {
 					password: credentials.token
 				)
 			)
+		}
+
+		func url(for issueKey: IssueKey) -> URL {
+			host.appendingPathComponent("browse").appendingPathComponent(issueKey.value)
 		}
 
 		func issue(for key: IssueKey) -> Async.Task<Issue, RestClient.Error> {

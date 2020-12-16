@@ -123,40 +123,36 @@ extension Actions {
 		}
 
 		private func formatIssuesReport(for tag: GitLab.Tag, issues: [Jira.Issue]) -> String {
-			var output = "Tag: \(tag.name)\n"
+			var output = "🏷   *\(tag.name)*\n"
 
 			if issues.isEmpty {
 				if let tagMessage = tag.message {
-					output += addTabToMultilineString(tagMessage) + "\n"
+					output += tagMessage.prependToEachLine(">") + "\n"
 				} else {
 					output += "\tНет тасок и описания"
 				}
 			} else {
 				if let tagMessage = tag.message {
-					output += addTabToMultilineString(tagMessage) + "\n"
+					output += tagMessage.prependToEachLine(">") + "\n"
 				}
-				output += "\n\tУпомянутые задачи:\n"
 				output += issues
 					.map { issue in
-						addTabToMultilineString("\(issue.key.value): \(issue.summary)")
+						let issueUrl = jiraClient.url(for: issue.key)
+						return "◦  <\(issueUrl)|\(issue.key.value)>: \(issue.summary) [_\(issue.status)_]"
+							.prependToEachLine("\t")
 					}
 					.joined(separator: "\n")
 			}
 
+			output += "\n"
 			return output
 		}
 
 		private func formatFailureReport(for tag: GitLab.Tag, error: Swift.Error) -> String {
-			var output = "Tag: \(tag.name)\n"
-			output.append(addTabToMultilineString("Не удалось получить задачи: \(error)"))
+			var output = "*Tag: \(tag.name)*\n"
+			output += "Не удалось получить задачи: \(error)".prependToEachLine("\t")
+			output += "\n"
 			return output
-		}
-
-		private func addTabToMultilineString(_ string: String) -> String {
-			string
-				.split(separator: "\n")
-				.map { "\t\($0)" }
-				.joined(separator: "\n")
 		}
 	}
 }
