@@ -167,7 +167,12 @@ extension Actions {
 							issues: success.issues
 						)
 					case .failure(let error):
-						description = self.formatFailureReport(for: toTag, error: error)
+						description = self.formatFailureReport(
+							project: project,
+							from: fromTag,
+							to: toTag,
+							error: error
+						)
 					}
 
 					return .success(description)
@@ -227,8 +232,15 @@ extension Actions {
 			return output
 		}
 
-		private func formatFailureReport(for tag: GitLab.Tag, error: Swift.Error) -> String {
-			var output = "*Tag: \(tag.name.maskingMarkdown())*\n"
+		private func formatFailureReport(
+			project: GitLab.Project,
+			from fromTag: GitLab.Tag,
+			to toTag: GitLab.Tag,
+			error: Swift.Error
+		) -> String {
+			let tagName = toTag.name.maskingMarkdown()
+			let tagUrl = project.urlForCompare(from: fromTag, to: toTag)
+			var output = "🏷   *<\(tagUrl)|\(tagName)>*\n"
 			output += "Не удалось получить задачи: \n"
 			output += "```"
 			output += "\(error)".prependToEachLine("\t")

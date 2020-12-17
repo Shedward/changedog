@@ -197,8 +197,9 @@ final class RestClient {
 			return .success(())
 		default:
 			var responseString = data.flatMap { String(data: $0, encoding: .utf8) }
-			if let fullResponseString = responseString, fullResponseString.count > 500 {
-				responseString = fullResponseString.prefix(500) + "..."
+			let errorBodySizeLimit = 250
+			if let fullResponseString = responseString, fullResponseString.count > errorBodySizeLimit {
+				responseString = fullResponseString.prefix(errorBodySizeLimit) + "..."
 			}
 			return .failure(.httpError(.init(code: response.statusCode, responseData: responseString)))
 		}
