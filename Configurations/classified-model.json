@@ -1,0 +1,10 @@
+{
+	"gitlabHost": "<gitlab host>",
+	"gitlabProjectId": "<project id>",
+
+	"jiraHost": "<jira host>",
+
+	"slackHost": "<slack host>",
+	"slackChannel": "#test-public-channel",
+	"showTagMessageRule": "onlyWhenNoTasks"
+}

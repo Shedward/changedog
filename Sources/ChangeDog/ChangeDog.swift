@@ -8,7 +8,20 @@ struct ChangeDog: ParsableCommand {
 		case failedToParseConfiguration(Swift.Error)
 	}
 
-	@Argument var configPath: String
+	@Argument
+	var configPath: String
+
+	@Option
+	var jiraUsername: String
+
+	@Option
+	var jiraPassword: String
+
+	@Option
+	var gitlabToken: String
+
+	@Option
+	var slackChannel: String?
 
 	func run() throws {
 		let url = URL(fileURLWithPath: configPath)
@@ -36,13 +49,13 @@ struct ChangeDog: ParsableCommand {
 
 		let jiraClient = try Jira.Client(
 			host: configuration.jiraHost,
-			credentials: configuration.jiraCredentials,
+			credentials: Jira.Credentials(username: jiraUsername, token: jiraPassword),
 			session: session
 		)
 		let gitlabClient = GitLab.Client(
 			host: configuration.gitlabHost,
-			projectId: configuration.gitlabProject,
-			token: configuration.gitlabToken,
+			projectId: GitLab.ProjectId(id: configuration.gitlabProjectId),
+			token: gitlabToken,
 			session: session
 		)
 
@@ -55,7 +68,7 @@ struct ChangeDog: ParsableCommand {
 			gitlabClient: gitlabClient,
 			jiraClient: jiraClient,
 			slackClient: slackClient,
-			slackChannel: configuration.slackChannel,
+			slackChannel: slackChannel ?? configuration.slackChannel,
 			showTagMessageRule: configuration.showTagMessageRule
 		)
 
@@ -63,10 +76,10 @@ struct ChangeDog: ParsableCommand {
 			switch result {
 			case .success:
 				print("Done")
+				Self.exit()
 			case .failure(let error):
-				print("Failed with error: \(error)")
+				Self.exit(withError: error)
 			}
-			Self.exit()
 		}
 
 		dispatchMain()
