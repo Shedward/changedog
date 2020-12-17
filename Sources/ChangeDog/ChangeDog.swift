@@ -4,6 +4,7 @@ import ArgumentParser
 struct ChangeDog: ParsableCommand {
 	enum Error: Swift.Error {
 		case wrongConfigurationPath
+		case gitlabTokenNotSpecified
 		case cantReadConfiguration(Swift.Error)
 		case failedToParseConfiguration(Swift.Error)
 	}
@@ -18,7 +19,7 @@ struct ChangeDog: ParsableCommand {
 	var jiraPassword: String
 
 	@Option
-	var gitlabToken: String
+	var gitlabToken: String?
 
 	@Option
 	var slackChannel: String?
@@ -43,6 +44,10 @@ struct ChangeDog: ParsableCommand {
 			configuration = successConfiguration
 		case .failure(let error):
 			throw Error.failedToParseConfiguration(error)
+		}
+
+		guard let gitlabToken = self.gitlabToken ?? configuration.gitlabToken else {
+			throw Error.gitlabTokenNotSpecified
 		}
 
 		let session = URLSession.shared

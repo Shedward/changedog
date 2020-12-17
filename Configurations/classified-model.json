@@ -1,6 +1,7 @@
 {
 	"gitlabHost": "<gitlab host>",
 	"gitlabProjectId": "<project id>",
+	"gitlabToken": "<gitlab token>",
 
 	"jiraHost": "<jira host>",
 
