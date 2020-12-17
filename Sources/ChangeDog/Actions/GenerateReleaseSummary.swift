@@ -229,7 +229,10 @@ extension Actions {
 
 		private func formatFailureReport(for tag: GitLab.Tag, error: Swift.Error) -> String {
 			var output = "*Tag: \(tag.name.maskingMarkdown())*\n"
-			output += "Не удалось получить задачи: \(error)".prependToEachLine("\t")
+			output += "Не удалось получить задачи: \n"
+			output += "```"
+			output += "\(error)".prependToEachLine("\t")
+			output += "```"
 			output += "\n"
 			return output
 		}
