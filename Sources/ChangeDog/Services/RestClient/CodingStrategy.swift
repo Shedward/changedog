@@ -47,7 +47,7 @@ extension RestClient {
 		let decoder: JSONDecoder
 		let payloadAllowedCharacters: CharacterSet = {
 			var set = CharacterSet.urlQueryAllowed
-			set.remove(charactersIn: ":,")
+			set.remove(charactersIn: ":/?#[]@!$&'()*+,;=")
 			return set
 		}()
 

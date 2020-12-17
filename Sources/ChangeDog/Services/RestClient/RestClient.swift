@@ -196,8 +196,11 @@ final class RestClient {
 		case 100...299:
 			return .success(())
 		default:
-			let responseData = data.flatMap { String(data: $0, encoding: .utf8) }
-			return .failure(.httpError(.init(code: response.statusCode, responseData: responseData)))
+			var responseString = data.flatMap { String(data: $0, encoding: .utf8) }
+			if let fullResponseString = responseString, fullResponseString.count > 500 {
+				responseString = fullResponseString.prefix(500) + "..."
+			}
+			return .failure(.httpError(.init(code: response.statusCode, responseData: responseString)))
 		}
 	}
 }
