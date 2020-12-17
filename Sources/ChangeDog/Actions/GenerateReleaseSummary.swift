@@ -10,10 +10,28 @@ extension Actions {
 			case failedToSendReport(RestClient.Error)
 		}
 
+		enum ShowTagMessageRule: String, Decodable {
+			case always = "always"
+			case never = "never"
+			case onlyWhenNoTasks = "onlyWhenNoTasks"
+
+			func shouldShowTagMessage(for issues: [Jira.Issue]) -> Bool {
+				switch self {
+				case .always:
+					return true
+				case .never:
+					return false
+				case .onlyWhenNoTasks:
+					return issues.isEmpty
+				}
+			}
+		}
+
 		let gitlabClient: GitLab.Client
 		let jiraClient: Jira.Client
 		let slackClient: Slack.Client
 		let slackChannel: String
+		let showTagMessageRule: ShowTagMessageRule
 
 		let username = "ChangeDog"
 		let iconEmoji = ":dog:"
@@ -22,12 +40,14 @@ extension Actions {
 			gitlabClient: GitLab.Client,
 			jiraClient: Jira.Client,
 			slackClient: Slack.Client,
-			slackChannel: String
+			slackChannel: String,
+			showTagMessageRule: ShowTagMessageRule
 		) {
 			self.gitlabClient = gitlabClient
 			self.jiraClient = jiraClient
 			self.slackClient = slackClient
 			self.slackChannel = slackChannel
+			self.showTagMessageRule = showTagMessageRule
 		}
 
 		func mainTask() -> Async.Task<Void, Swift.Error> {
@@ -103,7 +123,7 @@ extension Actions {
 		}
 
 		private func releasesReport(project: GitLab.Project, tagReports: [Result<String, Never>]) -> String {
-			var output: String = "🎉   Новые изменения в *\(project.name)*:\n\n\n"
+			var output: String = "🎉   Новые изменения в *<\(project.webUrl)|\(project.nameWithNamespace.maskingMarkdown())>*:\n\n\n"
 			output += tagReports
 				.compactMap { result -> String? in
 					try? result.get()
@@ -172,36 +192,34 @@ extension Actions {
 			issues: [Jira.Issue]
 		) -> String {
 			let tagName = toTag.name.maskingMarkdown()
-			let tagUrl = project.compareUrl(from: fromTag, to: toTag)
+			let tagUrl = project.urlForCompare(from: fromTag, to: toTag)
 			var output = "🏷   *<\(tagUrl)|\(tagName)>*\n"
 
-			if issues.isEmpty {
-				if let tagMessage = toTag.message {
-					output += tagMessage
-						.maskingMarkdown()
-						.prependToEachLine(">")
-					output += "\n"
-				} else {
-					output += "\tНет тасок и описания"
-				}
+			let haveTagMessage: Bool
+			if let tagMessage = toTag.message, showTagMessageRule.shouldShowTagMessage(for: issues) {
+				output += tagMessage
+					.maskingMarkdown()
+					.prependToEachLine(">")
+				output += "\n"
+				haveTagMessage = true
 			} else {
-				if let tagMessage = toTag.message {
-					output += tagMessage
-						.maskingMarkdown()
-						.prependToEachLine(">")
-					output += "\n"
+				haveTagMessage = false
+			}
+
+			output += issues
+				.map { issue in
+					var issueDescription: String = ""
+					issueDescription += "◦  "
+					let issueUrl = jiraClient.url(for: issue.key)
+					issueDescription += "<\(issueUrl)|\(issue.key.value.maskingMarkdown())>"
+					issueDescription += ": \(issue.summary.maskingMarkdown())"
+					issueDescription += " [_\(issue.status.maskingMarkdown())_]"
+					return issueDescription.prependToEachLine("\t")
 				}
-				output += issues
-					.map { issue in
-						var issueDescription: String = ""
-						issueDescription += "◦  "
-						let issueUrl = jiraClient.url(for: issue.key)
-						issueDescription += "<\(issueUrl)|\(issue.key.value.maskingMarkdown())>"
-						issueDescription += ": \(issue.summary.maskingMarkdown())"
-						issueDescription += " [_\(issue.status.maskingMarkdown())_]"
-						return issueDescription.prependToEachLine("\t")
-					}
-					.joined(separator: "\n")
+				.joined(separator: "\n")
+
+			if !haveTagMessage && issues.isEmpty {
+				output += "Нет ни задач ни описания в теге.\n"
 			}
 
 			output += "\n"

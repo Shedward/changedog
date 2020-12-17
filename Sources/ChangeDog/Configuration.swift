@@ -15,7 +15,7 @@ struct Configuration: Decodable {
 	let slackHost: URL
 
 	let slackChannel: String
-	let maxReleaseCount: Int
+	let showTagMessageRule: Actions.GenerateReleaseSummary.ShowTagMessageRule
 
 	private enum ConfigurationKey: String, CodingKey {
 		case gitlabHost = "gitlabHost"
@@ -28,8 +28,7 @@ struct Configuration: Decodable {
 
 		case slackHost = "slackHost"
 		case slackChannel = "slackChannel"
-		case maxReleaseCount = "maxReleaseCount"
-
+		case showTagMessage = "showTagMessage"
 	}
 
 	init(from decoder: Decoder) throws {
@@ -48,7 +47,8 @@ struct Configuration: Decodable {
 		slackHost = try Self.decodeUrl(in: container, forKey: .slackHost)
 		slackChannel = try container.decode(String.self, forKey: .slackChannel)
 
-		maxReleaseCount = try container.decode(Int.self, forKey: .maxReleaseCount)
+		showTagMessageRule = (try? container.decode(Actions.GenerateReleaseSummary.ShowTagMessageRule.self, forKey: .showTagMessage))
+			?? .always
 	}
 
 	private static func decodeUrl(in container: KeyedDecodingContainer<ConfigurationKey>, forKey key: ConfigurationKey) throws -> URL {

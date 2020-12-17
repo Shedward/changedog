@@ -22,6 +22,7 @@ changedog ./path/to/configuration.json
 
 	"slackHost": "<slack host>",
 	"slackChannel": "<slack channel>"
+	"showTagMessage": "onlyWhenNoTasks" // (always | never | onlyWhenNoTasks) По умолчанию always
 }
 ```
 
