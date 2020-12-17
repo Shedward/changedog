@@ -73,6 +73,7 @@ extension Actions {
 							iconEmoji: iconEmoji,
 							text: report
 						)
+						print(report)
 						return self.slackClient.send(message: message)
 							.mapError { Error.failedToSendReport($0) }
 					} else {
