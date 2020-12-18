@@ -55,7 +55,7 @@ struct ChangeDog: ParsableCommand {
 		}
 
 		guard
-			let jiraUsername = self.jiraPassword ?? configuration.jiraUsername,
+			let jiraUsername = self.jiraUsername ?? configuration.jiraUsername,
 			let jiraPassword = self.jiraPassword ?? configuration.jiraPassword
 		else {
 			throw Error.jiraCredentialsNotSpecified
