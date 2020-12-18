@@ -78,12 +78,15 @@ extension Actions {
 						)
 						print(report)
 						if dryRun {
+							print("This is a --dry-run, nothing was send")
 							return Async.justValue(value: (), errorType: Error.self)
 						} else {
+							print("Sent to \(slackChannel)")
 							return self.slackClient.send(message: message)
 								.mapError { Error.failedToSendReport($0) }
 						}
 					} else {
+						print("Nothing new")
 						return Async.justValue(value: (), errorType: Error.self)
 					}
 				}
