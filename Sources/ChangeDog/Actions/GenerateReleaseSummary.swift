@@ -30,8 +30,9 @@ extension Actions {
 		let gitlabClient: GitLab.Client
 		let jiraClient: Jira.Client
 		let slackClient: Slack.Client
-		let slackChannel: String
+		let slackChannel: String?
 		let showTagMessageRule: ShowTagMessageRule
+		let daysCount: Int
 		let dryRun: Bool
 
 		let username = "ChangeDog"
@@ -41,8 +42,9 @@ extension Actions {
 			gitlabClient: GitLab.Client,
 			jiraClient: Jira.Client,
 			slackClient: Slack.Client,
-			slackChannel: String,
+			slackChannel: String?,
 			showTagMessageRule: ShowTagMessageRule,
+			daysCount: Int,
 			dryRun: Bool
 		) {
 			self.gitlabClient = gitlabClient
@@ -50,6 +52,7 @@ extension Actions {
 			self.slackClient = slackClient
 			self.slackChannel = slackChannel
 			self.showTagMessageRule = showTagMessageRule
+			self.daysCount = daysCount
 			self.dryRun = dryRun
 		}
 
@@ -81,7 +84,7 @@ extension Actions {
 							print("This is a --dry-run, nothing was send")
 							return Async.justValue(value: (), errorType: Error.self)
 						} else {
-							print("Sent to \(slackChannel)")
+							print("Sent to \(slackChannel ?? "Slack")")
 							return self.slackClient.send(message: message)
 								.mapError { Error.failedToSendReport($0) }
 						}
@@ -96,7 +99,7 @@ extension Actions {
 		private func tagsToShow(tags: [GitLab.Tag]) -> [GitLab.Tag] {
 			guard let dayBefore = Calendar.current.date(
 				byAdding: .day,
-				value: -1,
+				value: -daysCount,
 				to: Date(),
 				wrappingComponents: true
 			)

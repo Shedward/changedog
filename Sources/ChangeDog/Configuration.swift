@@ -10,7 +10,7 @@ struct Configuration: Decodable {
 	let jiraPassword: String?
 
 	let slackHost: URL
+	let slackChannel: String?
 
-	let slackChannel: String
 	let showTagMessageRule: Actions.GenerateReleaseSummary.ShowTagMessageRule
 }

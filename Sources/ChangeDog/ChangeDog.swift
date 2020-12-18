@@ -26,6 +26,9 @@ struct ChangeDog: ParsableCommand {
 	var slackChannel: String?
 
 	@Option
+	var daysCount: Int = 1
+
+	@Option
 	var dryRun: Bool = false
 
 	func run() throws {
@@ -86,6 +89,7 @@ struct ChangeDog: ParsableCommand {
 			slackClient: slackClient,
 			slackChannel: slackChannel ?? configuration.slackChannel,
 			showTagMessageRule: configuration.showTagMessageRule,
+			daysCount: daysCount,
 			dryRun: dryRun
 		)
 
