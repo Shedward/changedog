@@ -32,6 +32,7 @@ extension Actions {
 		let slackClient: Slack.Client
 		let slackChannel: String
 		let showTagMessageRule: ShowTagMessageRule
+		let dryRun: Bool
 
 		let username = "ChangeDog"
 		let iconEmoji = ":dog:"
@@ -41,13 +42,15 @@ extension Actions {
 			jiraClient: Jira.Client,
 			slackClient: Slack.Client,
 			slackChannel: String,
-			showTagMessageRule: ShowTagMessageRule
+			showTagMessageRule: ShowTagMessageRule,
+			dryRun: Bool
 		) {
 			self.gitlabClient = gitlabClient
 			self.jiraClient = jiraClient
 			self.slackClient = slackClient
 			self.slackChannel = slackChannel
 			self.showTagMessageRule = showTagMessageRule
+			self.dryRun = dryRun
 		}
 
 		func mainTask() -> Async.Task<Void, Swift.Error> {
@@ -74,8 +77,12 @@ extension Actions {
 							text: report
 						)
 						print(report)
-						return self.slackClient.send(message: message)
-							.mapError { Error.failedToSendReport($0) }
+						if dryRun {
+							return Async.justValue(value: (), errorType: Error.self)
+						} else {
+							return self.slackClient.send(message: message)
+								.mapError { Error.failedToSendReport($0) }
+						}
 					} else {
 						return Async.justValue(value: (), errorType: Error.self)
 					}

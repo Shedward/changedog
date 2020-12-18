@@ -5,6 +5,7 @@ struct ChangeDog: ParsableCommand {
 	enum Error: Swift.Error {
 		case wrongConfigurationPath
 		case gitlabTokenNotSpecified
+		case jiraCredentialsNotSpecified
 		case cantReadConfiguration(Swift.Error)
 		case failedToParseConfiguration(Swift.Error)
 	}
@@ -13,16 +14,19 @@ struct ChangeDog: ParsableCommand {
 	var configPath: String
 
 	@Option
-	var jiraUsername: String
+	var jiraUsername: String?
 
 	@Option
-	var jiraPassword: String
+	var jiraPassword: String?
 
 	@Option
 	var gitlabToken: String?
 
 	@Option
 	var slackChannel: String?
+
+	@Option
+	var dryRun: Bool = false
 
 	func run() throws {
 		let url = URL(fileURLWithPath: configPath)
@@ -50,6 +54,13 @@ struct ChangeDog: ParsableCommand {
 			throw Error.gitlabTokenNotSpecified
 		}
 
+		guard
+			let jiraUsername = self.jiraPassword ?? configuration.jiraUsername,
+			let jiraPassword = self.jiraPassword ?? configuration.jiraPassword
+		else {
+			throw Error.jiraCredentialsNotSpecified
+		}
+
 		let session = URLSession.shared
 
 		let jiraClient = try Jira.Client(
@@ -74,7 +85,8 @@ struct ChangeDog: ParsableCommand {
 			jiraClient: jiraClient,
 			slackClient: slackClient,
 			slackChannel: slackChannel ?? configuration.slackChannel,
-			showTagMessageRule: configuration.showTagMessageRule
+			showTagMessageRule: configuration.showTagMessageRule,
+			dryRun: dryRun
 		)
 
 		action.mainTask().complete { result in
